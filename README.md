@@ -8,5 +8,5 @@ python simple_beamsearch.py beam_size
 # Example  
 ![probabilities.png](https://github.com/SeitaroShinagawa/simple_beamsearch/blob/master/images/probabilities.JPG "probabilites settings")
 ![beam2.png](https://github.com/SeitaroShinagawa/simple_beamsearch/blob/master/images/beam2.JPG "beam size = 2")
-![beam3.png](https://github.com/SeitaroShinagawa/DCGAN-chainer/blob/master/images/beam3.JPG "beam size = 3")
+![beam3.png](https://github.com/SeitaroShinagawa/simple_beamsearch/blob/master/images/beam3.JPG "beam size = 3")
 
