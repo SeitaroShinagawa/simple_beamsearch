@@ -19,18 +19,7 @@ while len(candidate_list==0:
 def pseudo_NN(hidden,word,word_list):
     hidden_next = hidden+[word]
     word_prob = NN_out_dict["-".join([word_list[i] for i in hidden_next])] 
-    return hidden_next,word_prob
-
-#def Nbest(output,num):
-#    nbest = []
-#    n=1
-#    for i,v in sorted(enumerate(output),key=lambda x:x[-1], reverse=True):
-#        nbest.append([i,v])
-#        if n==num:
-#            break
-#        else:
-#            n+=1
-#    return nbest
+    return hidden_next,np.array(word_prob)
 
 def Nbest(output,num):
     nbest = [(i,v) for i,v in sorted(enumerate(output),key=lambda x:x[-1], reverse=True)[:num]]
@@ -52,22 +41,24 @@ class BeamSearch():
         search()
     *****************
     """
-    def __init__(self,init_h,init_x,stop_word,beam_size=2):
+    def __init__(self,init_x,stop_word,beam_size=2):
         """
-        init_h: initial hidden variable (often zero vector)
         init_x: initial word (often the number indicates <s>, e.g. init_x=1 if vocab["<s>"]=1)
         candidate_list: [(h,word_list,cur_logprob),...]
         """
         self.beam_size = beam_size
-        self.init_h = init_h
         self.init_x = init_x
         self.stop_word = stop_word
-        self.candidate_list = [(self.init_h,[self.init_x],0)] #beam_sizeの数だけここに入れる 
         self.search_list = []
         self.result_list = [] #</s>が出たらここに入れる
 
-    def reset(self):
-        self.candidate_list = [(self.init_h,[self.init_x],0)] #beam_sizeの数だけここに入れる
+    def reset(self,init_h):
+        """
+        init_h: initial hidden variable (often zero vector)
+        init_h: wrapped object(list or taple or dict) , e.g. (c1,h1,c2,h2)
+        """
+        self.init_h = init_h
+        self.candidate_list = [(self.init_h,[self.init_x],0.0)] #beam_sizeの数だけここに入れる
         self.search_list = []
         self.result_list = [] #</s>が出たらここに入れる
 
@@ -80,7 +71,7 @@ class BeamSearch():
             yield self.candidate_list[batch_size*num:batch_size*(num+1)]
             num += 1
 
-    def accum_hidden_one(self,hset,next_hidden_state,next_prob): 
+    def accum_hidden_one(self,hset,next_hidden_state,next_logprob): 
 
         """
         accumrate candidate pair calclated by NN
@@ -89,9 +80,9 @@ class BeamSearch():
         next_prob   : softmax applied output of Neural Network (1xV) V:vocab_size
 
         """
-        cur_h, word_list, cur_logprob = hset 
-        prob_list = [(i,prob) for i,prob in enumerate(next_prob)]
-        self.search_list = self.search_list + [(next_hidden_state,word_list+[i],cur_logprob+math.log(prob)) for i,prob in sorted(prob_list,key=lambda x:x[-1],reverse=True)[:self.beam_size]]
+        cur_h, word_list, cur_logprob = hset
+        prob_list = [(i,prob) for i,prob in enumerate(next_logprob.flatten())]
+        self.search_list = self.search_list + [(next_hidden_state,word_list+[i],cur_logprob+next_logprob) for i,next_logprob in sorted(prob_list,key=lambda x:x[-1],reverse=True)[:self.beam_size]]
            
     def accum_hidden(self,hset_list,next_hidden_state_mat,next_prob_mat): #h_mat:BxH, out_distribution_mat:BxV 
         """
@@ -113,7 +104,7 @@ class BeamSearch():
             if index == self.stop_word:
                 index_list.append(i)
         
-        for i in index_list[::-1]:
+        for i in index_list[::-1]: #backward pop to prevent the order distoyed
             self.result_list.append(self.candidate_list[i])
             self.candidate_list.pop(i) 
         
@@ -186,7 +177,8 @@ if __name__ == '__main__':
 
     #beam search result
     stop_word = 4
-    BEAM = BeamSearch(hidden_ini,word_ini,stop_word,beam_size=4)
+    BEAM = BeamSearch(word_ini,stop_word,beam_size=4)
+    BEAM.reset(hidden_ini)
     for j in range(4):
         for candidate in BEAM.get(batch_size=1):
             print("candidate:",candidate)
